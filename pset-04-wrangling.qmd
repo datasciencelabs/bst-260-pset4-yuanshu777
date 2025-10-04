@@ -60,12 +60,11 @@ what we want.
 library(httr2)
 request <- request(url) |>
   req_url_query(
-    get = "POP_2020,POP_2021,NAME",
-    'for' = "state:*",
-    key = census_key
+    get = "POP_2020,POP_2021,NAME",  # request 2020/2021 population and state name
+    'for' = "state:*",               # fetch data for all states
+    key = census_key                  # use Census API key
   )
 
-request
 ```
 
 3.  Make a request to the US Census API using the `request` object. Save
@@ -75,7 +74,7 @@ request
     [here](https://en.wikipedia.org/wiki/List_of_HTTP_status_codes).
 
 ```{r}
-response <- request |> req_perform()
+response <- request |> req_perform() # send the request and get response
 
 response
 ```
@@ -93,6 +92,7 @@ resp_content_type(response)
     fix in the next exercise.
 
 ```{r}
+# parse JSON response and combine rows into a data frame
 population <- response |> resp_body_json() |> do.call(rbind, args = _)
 
 ```
@@ -112,26 +112,24 @@ population <- response |> resp_body_json() |> do.call(rbind, args = _)
 library(tidyverse)
 library(janitor)
 population <- population |> 
-  as_tibble() |> 
-  row_to_names(row_number = 1) |>
-  select(-state) |>
-  rename(state_name = NAME) |>
+  as_tibble() |>                          # convert to tibble
+  row_to_names(row_number = 1) |>         # set first row as column names
+  select(-state) |>                       # drop raw state code column
+  rename(state_name = NAME) |>            # rename NAME column for clarity
   pivot_longer(cols = starts_with("POP_"),
                names_to = "year",
-               values_to = "population"
+               values_to = "population"   # reshape population columns to long format
                ) |>
-  mutate(year = str_remove(year, "POP_"),
+  mutate(year = str_remove(year, "POP_"), # clean year labels
          population = as.numeric(population)) |> 
-  mutate(state_name = as.character(state_name),
-         state = case_when(
-         state_name%in% state.name ~
-         state.abb[match(state_name,state.name)],
-         state_name == "District of Columbia" ~ "DC",
-         state_name == "Puerto Rico" ~ "PR",
-         TRUE ~ NA_character_
-           )
+  mutate(state_name = as.character(state_name),   # ensure state_name is character
+         state = case_when(                      # add state abbreviations
+           state_name %in% state.name ~ state.abb[match(state_name, state.name)],
+           state_name == "District of Columbia" ~ "DC",
+           state_name == "Puerto Rico" ~ "PR",
+           TRUE ~ NA_character_
          )
-  
+  )
 ```
 
 7.  As a check, make a barplot of states' 2021 and 2022 populations.
@@ -140,20 +138,17 @@ population <- population |>
 
 ```{r}
 population |>
-  ggplot(aes(x= population,
-             y= reorder(state_name, population),
+  ggplot(aes(x = population,
+             y = reorder(state_name, population),
              fill = year)) +
-  geom_col(color = "darkgoldenrod", linewidth  = 0.3) +
-  coord_flip() +
-  facet_wrap(~ year) +
-  theme(axis.text.x = element_text(angle = 90, hjust = 1, size = 4)) +
+  geom_col(color = "darkgoldenrod",
+           linewidth = 0.3) +   # bar chart of population by state
+  facet_wrap(~ year) +          # separate panels for each year
+  theme(axis.text.y = element_text(hjust = 1, size = 4)) + # adjust y-axis labels
+  theme(legend.position = "none") +
   scale_x_continuous(labels = scales::comma)
 
-  # reorder state
-  # assign aesthetic mapping
-  # use geom_col to plot barplot
-  # flip coordinates
-  # facet by year
+
 
 
 
@@ -181,15 +176,16 @@ regions <- fromJSON(url)
 
 regions <- map_dfr(1:nrow(regions), ~ tibble(
     state_name = regions$states[[.x]],
-    region = regions$region[[.x]],
+    region     = regions$region[[.x]],
     region_name = regions$region_name[[.x]]
   )) |>
   mutate(region_name = if_else(region_name ==
     "New York and New Jersey, Puerto Rico, Virgin Islands",
-    "NY + Territories",
-    region_name
+    "NY + Territories", region_name     # simplify long region label
   )) |>
-  filter(state_name %in% c(state.name, "District of Columbia", "Puerto Rico"))
+  filter(state_name %in% c(state.name, "District of Columbia", "Puerto Rico"))  
+  # keep only U.S. states, DC, and Puerto Rico
+
 
 ```
 
@@ -197,7 +193,8 @@ regions <- map_dfr(1:nrow(regions), ~ tibble(
 
 ```{r}
 population <- population |>
-  left_join(regions, by = "state_name")
+  left_join(regions, by = "state_name")  # add region info to population data
+
 
 ```
 
@@ -211,7 +208,8 @@ population <- population |>
 api <- "https://data.cdc.gov/resource/pwn4-m3yp.json"
 cases_raw <- request(api) |> 
   req_perform() |> 
-  resp_body_json(simplifyDataFrame = TRUE) 
+  resp_body_json(simplifyDataFrame = TRUE)  # fetch and parse raw CDC case data
+
 
 ```
 
@@ -228,15 +226,17 @@ per state.
 
 ```{r}
 api <- "https://data.cdc.gov/resource/pwn4-m3yp.json"
-cases_raw <- cases_raw <- request(api) |> 
-  req_url_query(`$limit` = "10000000000") |>
+cases_raw <- request(api) |> 
+  req_url_query(`$limit` = "10000000000") |>          # request all rows from API
   req_perform() |> 
-  resp_body_json(simplifyDataFrame = TRUE) |>
+  resp_body_json(simplifyDataFrame = TRUE) |>         # parse JSON into data frame
   mutate(
-    date = as.Date(end_date),
-    cases = as.numeric(new_cases)
+    date  = as.Date(end_date),                        # convert date
+    cases = as.numeric(new_cases)                     # convert case counts to numeric
   ) |>
-  select(state, date, cases)
+  filter(state %in% c(state.abb, "DC", "PR")) |>      # keep valid states/DC/PR
+  select(state, date, cases)                          # keep relevant columns
+
 
 ```
 
@@ -247,22 +247,22 @@ cases_raw <- cases_raw <- request(api) |>
 ```{r}
 
 cases <- cases_raw |>
-  mutate(year = as.character(year(date))) |>
-  right_join(population |> select(state, year, population, region_name),
-            by = c("state", "year")) |>
-    filter(year %in% c("2020", "2021"))
+  mutate(year = as.character(year(date))) |>    # extract year
+  left_join(population |> select(state, year, population, region_name),
+            by = c("state", "year")) |>         # add population & region info
+  filter(year %in% c("2020", "2021"))          # keep 2020–2021 data
 
 cases |>
   filter(year %in% c(2020, 2021)) |>
-  ggplot(aes(x = date, y = (cases / population)*1e5, color = state)) +
-  geom_line(alpha = 0.6) +
-  facet_wrap(~ region_name) +
+  ggplot(aes(x = date, y = (cases / population) * 1e5, color = state)) +
+  geom_line(alpha = 0.6) +                # plot cases per 100k
+  facet_wrap(~ region_name) +             # facet by region
   labs(
-    title = "COVID-19 Cases per 100,000 (2020–2021)",
+    title = "COVID-19 Cases per 100,000 (2020–2021)", # add title & labels
     x = "Date",
     y = "Cases per 100,000"
-  )
-
+  ) + 
+  theme(axis.text.x = element_text(angle = 60, hjust = 1)) 
 
 
 ```
@@ -275,13 +275,18 @@ cases |>
     Order by year and month. Use the **knitr** package and `kable()`
     function to display the results as a formatted table.
 
-```{r}
-cases |> mutate(
-  date = ymd(date), month = month(date, label = TRUE, abbr = FALSE)) |>
-  group_by(year,month) |>
-  summarise(total_cases = sum(cases), .groups = "drop") |>
-  arrange(year, month) |>
-  knitr::kable( caption = "Total COVID-19 Cases by Month (2020–2021)")
+```{r, warning=FALSE}
+cases |> 
+  mutate(
+    date  = ymd(date),        # ensure proper date format
+    month = month(date, label = TRUE, abbr = FALSE) # extract full month name
+  ) |>
+  group_by(year, month) |>    # group by year and month
+  summarise(total_cases = sum(cases), .groups = "drop") |> 
+  arrange(year, month) |>     # order results chronologically
+  knitr::kable(caption = "Total COVID-19 Cases by Month (2020–2021)")  
+  # nicely formatted summary table
+
 
   
 ```
@@ -301,14 +306,20 @@ format and deaths are numeric.
 
 ```{r}
 deaths <- request(deaths_url) |>
-  req_url_query(`$limit` = "10000000000") |>
+  req_url_query(`$limit` = '10000000000') |>    # request full dataset
   req_perform() |>
-  resp_body_json(simplifyDataFrame = TRUE) |>
+  resp_body_json(simplifyDataFrame = TRUE) |>   # parse JSON into data frame
   mutate(
-    date = as.Date(end_date),
-    deaths = as.numeric(total_deaths)
+    date   = as.Date(end_date),                 # convert to Date
+    deaths = as.numeric(covid_19_deaths)        # ensure numeric deaths
   ) |>
-  filter(state %in% c(state.name, "District of Columbia", "Puerto Rico"))
+  filter(
+    state %in% c(state.name,                    # keep valid states/DC/PR
+                 "District of Columbia", "Puerto Rico"),  
+    !is.na(date), 
+    !is.na(deaths)                              # drop missing values
+  )
+
 
 ```
 
@@ -318,21 +329,22 @@ deaths <- request(deaths_url) |>
     appropriate labels and title.
 
 ```{r}
+
 deaths |>
   group_by(state) |>
-  summarise(td = sum(deaths, na.rm = TRUE), .groups = "drop") |>
-  mutate(rank = rank(td))|>
-  filter(rank <= 10) |>
+  summarise(td = sum(deaths, na.rm = TRUE),
+            .groups = "drop") |>  # total deaths by state
+  mutate(rank = rank(-td)) |>     # rank states by deaths
+  filter(rank <= 10) |>           # keep top 10 states
   ggplot(aes(x = reorder(state, td), y = td)) +
-  geom_bar(stat = "identity", color = "darkgoldenrod", linewidth  = 1) +
-  coord_flip() +
+  geom_col(stat = "identity", color = "darkgoldenrod", linewidth = 1) + 
+  coord_flip() +                    # horizontal bars
   labs(
-    title = "Total COVID-19 Deaths by State",
-    x = "State",
+    title = "Total COVID-19 Deaths by State", 
+    x = "State", 
     y = "Total Deaths"
   ) +
-  geom_col(fill = "firebrick")
-
+  geom_col(fill = "firebrick")  # fill bars with red
 
 
 ```
