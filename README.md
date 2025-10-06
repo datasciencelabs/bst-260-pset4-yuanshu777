@@ -160,7 +160,7 @@ to:
 ## Grading
 
 | **Criteria** | **Excellent (A)** | **Good (B)** | **Satisfactory (C)** | **Needs Improvement (D-F)** |
-|:-------------|:-------------|:-------------|:-------------|:----------------|
+|:---|:---|:---|:---|:---|
 | **API Integration & HTTP Requests (30 points)** | 27-30: Perfect use of httr2, proper error handling, all API calls successful. Demonstrates mastery of web API integration. | 24-26: Good API usage with minor issues in parameter handling or response processing. | 18-23: Basic API functionality working but missing some error handling or parameter optimization. | 0-17: Poor API usage, failed requests, major errors in HTTP handling or missing functionality. |
 | **Data Extraction & JSON Parsing (25 points)** | 23-25: Excellent JSON parsing, perfect data extraction from complex nested structures. Clean conversion to tidy data formats. | 20-22: Good data extraction with minor issues in JSON parsing or data structure handling. | 15-19: Basic data extraction working but some issues with complex nested data or inefficient parsing. | 0-14: Poor data extraction, major JSON parsing errors, or inability to handle API response structures. |
 | **Data Cleaning & Transformation (20 points)** | 18-20: Masterful data cleaning, proper type conversions, excellent use of janitor and tidyverse tools. Perfect date parsing. | 16-17: Good data cleaning with minor issues in type conversion or date handling. | 12-15: Basic cleaning completed but some issues with data types, dates, or missing value handling. | 0-11: Poor data cleaning, major type conversion errors, or improper handling of messy API data. |

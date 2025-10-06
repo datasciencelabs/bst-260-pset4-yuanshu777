@@ -275,7 +275,7 @@ cases |>
     Order by year and month. Use the **knitr** package and `kable()`
     function to display the results as a formatted table.
 
-```{r, warning=FALSE}
+```{r, warning=FALSE, message=FALSE}
 cases |> 
   mutate(
     date  = ymd(date),        # ensure proper date format
@@ -309,7 +309,8 @@ deaths <- request(deaths_url) |>
   req_url_query(`$limit` = '10000000000') |>    # request full dataset
   req_perform() |>
   resp_body_json(simplifyDataFrame = TRUE) |>   # parse JSON into data frame
-  mutate(
+  transmute(
+    state,
     date   = as.Date(end_date),                 # convert to Date
     deaths = as.numeric(covid_19_deaths)        # ensure numeric deaths
   ) |>
